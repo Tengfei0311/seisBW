@@ -1,0 +1,18 @@
+####STRUCTURES###
+pre_processor  --  preprocessing for syn and obs (filtering, tapering, detrend, window, WT transform ...)
+adjoint_source --  calculate adjoint source
+misfit         --  misfit for data space, model space, compare of misfits
+post_processor --  postprocessing of kernels, determine update direction 
+model_update   --  update model 
+
+
+
+
+########  source codes ###########
+	adj_binary.f90 -- adjoint source calculation
+        WT1D_@D.f90    -- 1D WT to 2D shot gather
+        misfit.f90     -- sum uo all event misfit to obtain entire misfit
+        misfit_kernel.f90  -- sum up all event kernels to obtain misfit kernel
+        comp_misfit.f90    -- to compare misfit for update model and misfit for current model
+        update_direction.f90  -- direction to update current model
+        model_update.f90     --  to update current model using line search along the update direction

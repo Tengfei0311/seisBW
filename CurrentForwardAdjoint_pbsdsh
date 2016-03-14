@@ -1,0 +1,114 @@
+#!/bin/bash
+
+[[ -n "${16}" ]] || { echo -e "\n### Usage ###\n./ForwardSimulation_pbsdsh iter\n"; exit 0 ; }
+ 
+# number of smaples in time
+nt=$1
+# maximal scale
+scale=$2 
+# current level
+level=$3 
+# kernel type
+kernel=$4 
+# number of basis function
+NA=$5 
+# number of receivers
+NREC=$6              
+# number of sources
+NSRC=$7
+# directory (global) which contains necessary information to run the simulations
+DIR_SCRIPTS=$8                       
+# directory (global) which stores the results
+DIR_RESULTS=${9}
+# directory (local) where specfem runs
+LOCAL_DIR=${10} 
+#misfit catagory
+# waveform difference misfit for entire seismograms before preprocessing 
+SAVE_misfit_WD_original=${11}
+# waveform difference misfit for entire seismograms after preprocessing
+SAVE_misfit_WD_preprocessing=${12}
+# traveltime misfit
+SAVE_misfit_TT=${13}
+# waveform difference
+SAVE_misfit_WD=${14}
+# envelope difference
+SAVE_misfit_ED=${15}
+# envelope traveltime
+SAVE_misfit_ET=${16}
+
+iproc=$PBS_VNODENUM  # ID of the source (from 0 to $numprocs-1)
+DIR_WORKING=$( seq --format="$LOCAL_DIR/%06.f/" $iproc $iproc )  
+cd $DIR_WORKING
+
+## echo " link current model "
+   cp $DIR_RESULTS/model_current.dat ./DATA/model_velocity.dat_input
+# source location
+  xs=$[ $iproc * 80 + 200 ]  # source location for this simulation (totally 113 shots, from 250 ~ 4730 m)
+  zs=10
+
+##echo " edit 'Par_file' "
+   FILE="./DATA/Par_file"
+   sed -e "s#^SIMULATION_TYPE.*#SIMULATION_TYPE = 1 #g"  $FILE > temp; mv temp $FILE
+   sed -e "s#^SAVE_FORWARD.*#SAVE_FORWARD = .true. #g"  $FILE > temp; mv temp $FILE
+
+   # cleans output files
+   rm -rf ./OUTPUT_FILES/*
+   ##### stores setup
+   cp ./DATA/Par_file ./OUTPUT_FILES/
+   cp ./DATA/SOURCE ./OUTPUT_FILES/
+
+
+   ##### forward simulation (data) #####
+   ./xmeshfem2D > OUTPUT_FILES/output_mesher.txt
+   ./xspecfem2D > OUTPUT_FILES/output_solver.txt
+
+  #### Data pre-processing
+  sh preprocess_flow.sh $nt $scale $level $NA $xs
+
+# stores output
+  cp OUTPUT_FILES/Ux_file_single.bin  DATA_syn/Ux_file_single.bin
+  cp OUTPUT_FILES/Uz_file_single.bin  DATA_syn/Uz_file_single.bin
+  cp OUTPUT_FILES/Ux_file_single_processed.bin  DATA_syn/Ux_file_single_processed.bin
+  cp OUTPUT_FILES/Uz_file_single_processed.bin  DATA_syn/Uz_file_single_processed.bin
+
+#echo "finish forward simulation"
+## adjoint source
+  ./adj_binary.exe $kernel 1
+
+
+   ## store event misfit in global result directory
+if [ "$SAVE_misfit_WD_original" -eq 1 ]; then
+   cp ./misfit_WD_original.dat $DIR_RESULTS/misfit_WD_original${iproc}.dat
+fi
+if [ "$SAVE_misfit_WD_preprocessing" -eq 1 ]; then
+   cp ./misfit_WD_preprocessing.dat $DIR_RESULTS/misfit_WD_preprocessing${iproc}.dat
+fi
+if [ "$SAVE_misfit_WD" -eq 1 ]; then
+   cp ./misfit_WD.dat $DIR_RESULTS/misfit_WD${iproc}.dat
+fi
+if [ "$SAVE_misfit_TT" -eq 1 ]; then
+   cp ./misfit_TT.dat $DIR_RESULTS/misfit_TT${iproc}.dat
+fi
+if [ "$SAVE_misfit_ED" -eq 1 ]; then
+   cp ./misfit_ED.dat $DIR_RESULTS/misfit_ED${iproc}.dat
+fi
+if [ "$SAVE_misfit_ET" -eq 1 ]; then
+   cp ./misfit_ET.dat $DIR_RESULTS/misfit_ET${iproc}.dat
+fi
+
+
+
+## adjoint simulation
+##### edit 'Par_file' #####
+   FILE="./DATA/Par_file"
+   sed -e "s#^SIMULATION_TYPE.*#SIMULATION_TYPE = 3 #g"  $FILE > temp; mv temp $FILE
+   sed -e "s#^SAVE_FORWARD.*#SAVE_FORWARD = .false. #g"  $FILE > temp; mv temp $FILE
+
+   ##### adjoint simulation (data) #####
+   ./xmeshfem2D > OUTPUT_FILES/output_mesher.txt
+   ./xspecfem2D > OUTPUT_FILES/output_solver.txt
+
+    # store event kernel in global result directory
+   cp OUTPUT_FILES/proc000000_rhop_alpha_beta_kernel.dat  $DIR_RESULTS/event_kernel$iproc.dat
+#echo "finish adjoint simulation"
+

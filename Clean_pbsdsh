@@ -1,0 +1,11 @@
+#!/bin/bash
+
+[[ -n "${1}" ]] || { echo -e "\n### Usage ###\n./Clean_pbsdsh iter\n"; exit 0 ; }
+
+LOCAL_DIR=$1         # directory (local) where specfem runs
+iproc=$PBS_VNODENUM  # ID of the source (from 0 to $numprocs-1)
+
+rm -rf $LOCAL_DIR 
+
+
+

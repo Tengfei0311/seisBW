@@ -1,0 +1,71 @@
+#!/bin/bash
+[[ -n "${10}" ]] || { echo -e "\n### Usage ###\n./ForwardSimulation_pbsdsh \n"; exit 0 ; }
+
+# number of smaples in time
+nt=$1
+# maximal scale
+scale=$2
+# current level
+level=$3
+# kernel type
+kernel=$4
+# number of basis function
+NA=$5
+# number of receivers
+NREC=$6
+# number of sources
+NSRC=$7
+# directory (global) which contains necessary information to run the simulations
+DIR_SCRIPTS=$8
+# directory (global) which stores the results
+DIR_RESULTS=${9}
+# directory (local) where specfem runs
+LOCAL_DIR=${10}
+
+iproc=$PBS_VNODENUM  # ID of the source (from 0 to $numprocs-1)
+DIR_WORKING=$( seq --format="$LOCAL_DIR/%06.f/" $iproc $iproc )      # working   directory (on local nodes, where specfem runs)
+
+mkdir -p $DIR_WORKING $DIR_WORKING/DATA_obs $DIR_WORKING/DATA_syn
+
+cd $DIR_WORKING
+##echo "####### copy executables & input files ######"
+   cp -r $DIR_SCRIPTS/bin/* $DIR_WORKING/
+
+
+## echo " link target model "
+   cp $DIR_RESULTS/model_target.dat ./DATA/model_velocity.dat_input
+
+  xs=$[ $iproc * 80 + 200 ]  # source location for this simulation (totally 113 shots, from 250 ~ 4730 m)
+  zs=10
+
+### echo " edit source location (xs) in the file 'SOURCE' "
+   FILE="./DATA/SOURCE"
+   sed -e "s/^xs.*$/xs =    $xs/g" $FILE > temp;  mv temp $FILE
+   sed -e "s/^zs.*$/zs =    $zs/g" $FILE > temp;  mv temp $FILE
+
+
+##### edit 'Par_file' #####
+   FILE="./DATA/Par_file"
+   sed -e "s/^nt.*$/nt =    $nt/g" $FILE > temp;  mv temp $FILE
+   sed -e "s#^SIMULATION_TYPE.*#SIMULATION_TYPE = 1 #g"  $FILE > temp; mv temp $FILE
+   sed -e "s#^SAVE_FORWARD.*#SAVE_FORWARD = .false. #g"  $FILE > temp; mv temp $FILE
+
+   # cleans output files
+   rm -rf ./OUTPUT_FILES/*
+   ##### stores setup
+   cp ./DATA/Par_file ./OUTPUT_FILES/
+   cp ./DATA/SOURCE ./OUTPUT_FILES/
+
+   ##### forward simulation (data) #####
+   ./xmeshfem2D > OUTPUT_FILES/output_mesher.txt
+   ./xspecfem2D > OUTPUT_FILES/output_solver.txt
+
+  #### Data pre-processing
+  sh preprocess_flow.sh $nt $scale $level $NA $xs 
+
+# stores output
+  cp OUTPUT_FILES/Ux_file_single.bin  DATA_obs/Ux_file_single.bin
+  cp OUTPUT_FILES/Uz_file_single.bin  DATA_obs/Uz_file_single.bin
+  cp OUTPUT_FILES/Ux_file_single_processed.bin  DATA_obs/Ux_file_single_processed.bin
+  cp OUTPUT_FILES/Uz_file_single_processed.bin  DATA_obs/Uz_file_single_processed.bin
+

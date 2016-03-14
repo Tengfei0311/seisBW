@@ -1,0 +1,29 @@
+OPT= -Wall -fbounds-check
+FC = gfortran
+CFLAGS= ${OPT}
+currentdir=`pwd`
+
+TAULIBDIR=/tigress/yanhuay/software/src/ttimes_mod
+
+SACLIBDIR=/tigress/yanhuay/software/sac_101.4/lib
+
+LIBS= -lsacio -lsac -ltau -lm
+
+LIB_preprocess=/tigress/yanhuay/software/lib/preprocess.a
+
+all:
+	$(FC) ${CFLAGS} ./SRC/pre_processor/window_seismo.f90 -o ./bin/window_seismo.exe  ${LIB_preprocess} -L${TAULIBDIR}  -L${SACLIBDIR} ${LIBS}
+	$(FC) ${CFLAGS} ./SRC/pre_processor/WT1D_2D.f90 -o ./bin/WT.exe  ${LIB_preprocess} -L${TAULIBDIR}  -L${SACLIBDIR} ${LIBS}
+	$(FC) ${CFLAGS} ./SRC/adjoint_source/adj_binary.f90 -o ./bin/adj_binary.exe  ${LIB_preprocess} -L${TAULIBDIR}  -L${SACLIBDIR} ${LIBS}
+	$(FC) ${CFLAGS} ./SRC/misfit/data_misfit.f90 -o ./bin/data_misfit.exe
+	$(FC) ${CFLAGS} ./SRC/misfit/model_misfit.f90 -o ./bin/model_misfit.exe
+	$(FC) ${CFLAGS} ./SRC/misfit/comp_misfit.f90 -o ./bin/comp_misfit.exe
+	$(FC) ${CFLAGS} ./SRC/post_processor/misfit_kernel.f90 -o ./bin/misfit_kernel.exe
+	$(FC) ${CFLAGS} ./SRC/post_processor/update_direction.f90 -o ./bin/update_direction.exe 
+	$(FC) ${CFLAGS} ./SRC/model_update/model_update.f90 -o ./bin/model_update.exe 
+
+clean:
+	rm -f  ./bin/*.exe
+
+
+

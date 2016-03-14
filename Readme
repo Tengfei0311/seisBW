@@ -1,0 +1,8 @@
+## Makefile is parameter file
+# this only works on pbs system 
+#
+./Makefile
+make -f make_gfortran clean
+make -f make_gfortran
+qsub Marmousi_submit.bash
+
